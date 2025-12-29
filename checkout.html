@@ -45,7 +45,7 @@
                 <input class="form-check-input" type="checkbox" id="save-address" checked />
                 <label class="form-check-label" for="save-address">Save this address to my profile</label>
               </div>
-              <button class="btn btn-primary btn-lg" id="btn-pay">Proceed to Pay</button>
+              <button class="btn btn-primary btn-lg" id="btn-pay" onclick="syncAndPay">Proceed to Pay</button>
             </form>
           </div>
           <div class="col-12 col-lg-5">
@@ -121,7 +121,95 @@
           checkoutRazorpayWithAddress(payload);
         });
       });
+
+
+      
+  // document.addEventListener('DOMContentLoaded', () => {
+  //   // 1. LocalStorage se user aur address nikaalein
+  //   const user = JSON.parse(localStorage.getItem('fg_user') || '{}');
+  //   const addr = JSON.parse(localStorage.getItem('fg_address') || '{}');
+
+  //   // 2. Checkout form ke inputs mein data bharein
+  //   if (user.name) document.getElementById('checkout-name').value = user.name;
+  //   if (user.mobile) document.getElementById('checkout-phone').value = user.mobile;
+    
+  //   // Address fields bharein
+  //   if (addr.line1) document.getElementById('checkout-address').value = addr.line1;
+  //   if (addr.city) document.getElementById('checkout-city').value = addr.city;
+  //   if (addr.pin) document.getElementById('checkout-pincode').value = addr.pin;
+    
+  //   console.log("✅ Checkout details pre-filled from Profile!");
+  // });
+
     </script>
+
+    <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const user = JSON.parse(localStorage.getItem('fg_user') || '{}');
+    const addr = JSON.parse(localStorage.getItem('fg_address') || '{}');
+
+    // Dhyan de: HTML mein jo ID hai wahi yahan honi chahiye
+    // Agar aapke HTML mein <input id="phone"> hai, toh yahan 'phone' likhein
+    const phoneField = document.getElementById('checkout-phone') || document.getElementById('phone');
+    const nameField = document.getElementById('checkout-name') || document.getElementById('name');
+
+    if (nameField) nameField.value = user.name || '';
+    if (phoneField) phoneField.value = user.mobile || ''; // Profile wala mobile yahan aayega
+    
+    // Address fields
+    const addrField = document.getElementById('checkout-address') || document.getElementById('address');
+    if (addrField) addrField.value = addr.line1 || '';
+  });
+
+
+  async function syncAndPay() {
+  const user = JSON.parse(localStorage.getItem('fg_user') || '{}');
+  
+  // 1. Checkout form se naya data lein
+  const updatedDetails = {
+    email: user.email,
+    name: document.getElementById('checkout-name').value,
+    mobile: document.getElementById('checkout-phone').value,
+    address: {
+      line1: document.getElementById('checkout-address').value,
+      city: document.getElementById('checkout-city').value,
+      pin: document.getElementById('checkout-pincode').value
+    }
+  };
+
+  try {
+    // 2. Database aur Profile ko update karein (Sync)
+    const res = await fetch('/api/profile/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updatedDetails)
+    });
+    
+    if (res.ok) {
+      const data = await res.json();
+      // 3. LocalStorage update karein taaki Profile page par bhi badal jaye
+      localStorage.setItem('fg_user', JSON.stringify({ name: data.name, email: data.email, mobile: data.mobile }));
+      localStorage.setItem('fg_address', JSON.stringify(data.address));
+      
+      console.log("✅ Sync Successful! Ab payment shuru kar rahe hain...");
+      
+      // 4. Ab Razorpay/Stripe function call karein
+      checkoutRazorpay(); 
+    }
+  } catch (err) {
+    alert("Profile sync fail ho gaya, payment nahi ho sakti.");
+  }
+}
+</script>
+
+<script>
+  // Page load hote hi sabse pehle check karein
+  const user = JSON.parse(localStorage.getItem('fg_user') || 'null');
+  if (!user) {
+    alert("Order karne ke liye please pehle Login karein!");
+    window.location.href = 'auth.html'; // Seedha login page par bhejein
+  }
+</script>
   </body>
   </html>
 
